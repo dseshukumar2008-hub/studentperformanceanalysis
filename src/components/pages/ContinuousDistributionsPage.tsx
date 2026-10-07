@@ -28,42 +28,7 @@ export const ContinuousDistributionsPage: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-12">
-      {/* NORMAL DISTRIBUTION */}
-      <FormulaCard
-        conceptTitle="Normal Distribution N(μ, σ²)"
-        moduleBadge="MODULE V"
-        formula="f(x) = (1 / σ√(2π)) · e^(-(x - μ)² / 2σ²)"
-        formulaDescription="Continuous Gaussian distribution fitted to student final academic scores."
-        results={[
-          { label: 'Sample Mean (μ)', value: stats.mean, highlight: true },
-          { label: 'Std Dev (σ)', value: stats.stdDev },
-          { label: 'Input Score (X)', value: targetScore },
-          { label: 'Calculated Z-Score', value: normData.zScore, highlight: true },
-          { label: 'P(X ≤ x) Cumulative', value: normData.pLess, highlight: true },
-          { label: 'P(X ≥ x) Upper Tail', value: normData.pGreater }
-        ]}
-        interpretation={`For a score of X = ${targetScore}, the standard normal Z-score is Z = ${normData.zScore}. The probability of a student scoring ≤ ${targetScore} is ${normData.pLess} (${(normData.pLess * 100).toFixed(1)}%).`}
-      >
-        <div className="space-y-4">
-          <div className="flex items-center space-x-3 text-xs font-semibold">
-            <span>Input Score X for Z-Calculation:</span>
-            <input type="range" min="40" max="100" value={targetScore} onChange={e => setTargetScore(Number(e.target.value))} className="w-64 accent-indigo-600" />
-            <span className="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border font-bold">{targetScore}</span>
-          </div>
 
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={normData.curve} margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="x" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip contentStyle={{ backgroundColor: '#0F172A', color: '#fff', borderRadius: '12px', fontSize: '12px' }} />
-                <Area type="monotone" dataKey="pdf" stroke="#4F46E5" fill="#6366F1" fillOpacity={0.4} strokeWidth={3} name="Normal Density" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </FormulaCard>
 
       {/* Z-SCORE TABLE CALCULATOR */}
       <FormulaCard

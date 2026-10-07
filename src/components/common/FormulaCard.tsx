@@ -111,7 +111,7 @@ export const FormulaCard: React.FC<FormulaCardProps> = ({
         <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-4 flex items-start space-x-3 text-xs text-amber-950">
           <HelpCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <span className="font-bold text-amber-900 block mb-0.5">Faculty Academic Interpretation:</span>
+            <span className="font-bold text-amber-900 block mb-0.5">Interpretation:</span>
             <p className="leading-relaxed font-medium text-amber-900/90">{interpretation}</p>
           </div>
         </div>

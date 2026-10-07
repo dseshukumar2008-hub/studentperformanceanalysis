@@ -36,7 +36,6 @@ const navItems: NavMenuItem[] = [
   { id: 'correlation', label: 'Correlation', icon: GitCommit },
   { id: 'regression', label: 'Regression', icon: TrendingUp },
   { id: 'prediction', label: 'Score Predictor', icon: BrainCircuit },
-  { id: 'manual-analysis', label: 'Manual Student Analysis', icon: Sparkles },
   { id: 'actual-vs-predicted', label: 'Actual vs Predicted', icon: CheckCircle2 },
   { id: 'subject-analysis', label: 'Subject Breakdown', icon: GraduationCap },
 ];

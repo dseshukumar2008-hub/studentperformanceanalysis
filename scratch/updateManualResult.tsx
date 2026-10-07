@@ -2,13 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { Activity, Trash2, Plus, Sparkles, CheckSquare, Square, Calculator } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ScatterChart, Scatter, ZAxis, LabelList, Cell, ReferenceLine, Legend
+  ScatterChart, Scatter, ZAxis, LabelList, Cell, ReferenceLine, Legend, PieChart, Pie, Sector, ResponsiveContainer as RC, LineChart, Line
 } from 'recharts';
 import { FormulaCard } from '../common/FormulaCard';
 import {
   calculateMean, calculateMedian, calculateStdDev,
   calculatePearsonCorrelation, calculateCovariance, calculateCorrelationMatrix,
-  fitSimpleLinearRegression, fitMultipleLinearRegression, predictStudentScore
+  fitMultipleLinearRegression, predictStudentScore, fitSimpleLinearRegression
 } from '../../utils/mathEngine';
 import { useData } from '../../context/DataContext';
 
@@ -163,9 +163,10 @@ export const ManualAnalysisPage: React.FC = () => {
         }).sort((a, b) => b.mean - a.mean);
       }
 
-      let correlations = [];
-      let covariances = [];
+      let correlations: any[] = [];
+      let covariances: any[] = [];
       let multipleModel: any | null = null;
+      let simpleModel: any | null = null;
       let corrMatrix: any[] = [];
 
       if (hasFinalScores && parsedData.length >= 3) {
@@ -182,8 +183,7 @@ export const ManualAnalysisPage: React.FC = () => {
         }).sort((a, b) => b.cov - a.cov);
         
         const varsForMatrix = [...requiredKeys, 'Final_Score'];
-        const matrixVals = varsForMatrix.map(k => parsedData.map(d => d[k]));
-        const matrix = calculateCorrelationMatrix(matrixVals);
+        const matrix = calculateCorrelationMatrix(parsedData as any, varsForMatrix as any[]);
         
         corrMatrix = matrix.map((row, i) => {
           return row.map((val, j) => ({
@@ -194,6 +194,13 @@ export const ManualAnalysisPage: React.FC = () => {
         });
       }
 
+      if (hasFinalScores && parsedData.length >= 3 && correlations.length > 0) {
+        const topVar = correlations[0].key;
+        const xVals = parsedData.map(d => d[topVar]);
+        simpleModel = fitSimpleLinearRegression(xVals, finalScores);
+        simpleModel.feature = topVar;
+        simpleModel.label = correlations[0].label;
+      }
       if (hasFinalScores && parsedData.length > requiredKeys.length + 1) {
          multipleModel = fitMultipleLinearRegression(parsedData);
       }
@@ -202,17 +209,21 @@ export const ManualAnalysisPage: React.FC = () => {
         parsedData,
         hasFinalScores,
         stats,
+        performanceDist,
+        averageAttendance,
+        averageStudy,
         subjectStats,
         correlations,
         covariances,
+        simpleModel,
         multipleModel,
         corrMatrix,
         singleStudentPred,
         isSingle: parsedData.length === 1
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Runtime error during manual analysis:", err);
-      setAnalysisResult({ error: "Unable to analyze the entered data. Please check that all required values are valid and within the allowed ranges." });
+      setAnalysisResult({ error: `Analysis Error: ${err.message}\n${err.stack}` });
     }
   };
 
@@ -424,24 +435,30 @@ export const ManualAnalysisPage: React.FC = () => {
           ) : (
             /* MULTIPLE STUDENTS ANALYSIS */
             <>
-              {/* 1. DESCRIPTIVE STATISTICS */}
+              {/* 1. MANUAL DATASET OVERVIEW */}
               {analysisResult.stats ? (
                 <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-sm space-y-6">
-                  <h3 className="text-lg font-bold text-slate-900">Descriptive Statistics</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <h3 className="text-lg font-bold text-slate-900">Manual Dataset Overview</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { label: 'Total Students', value: analysisResult.stats.total },
-                      { label: 'Mean Final Score', value: analysisResult.stats.mean.toFixed(2) },
+                      { label: 'Students Analyzed', value: analysisResult.stats.total },
+                      { label: 'Average Final Score', value: analysisResult.stats.mean.toFixed(2) },
                       { label: 'Median Final Score', value: analysisResult.stats.median.toFixed(2) },
                       { label: 'Standard Deviation', value: analysisResult.stats.std.toFixed(2) },
                       { label: 'Highest Final Score', value: analysisResult.stats.max },
-                      { label: 'Lowest Final Score', value: analysisResult.stats.min }
+                      { label: 'Lowest Final Score', value: analysisResult.stats.min },
+                      { label: 'Average Attendance', value: analysisResult.averageAttendance.toFixed(1) + '%' },
+                      { label: 'Average Study Hours', value: analysisResult.averageStudy.toFixed(1) + 'h' }
                     ].map(stat => (
                       <div key={stat.label} className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center shadow-sm">
                         <div className="text-xl font-extrabold text-slate-800">{stat.value}</div>
                         <div className="text-[10px] uppercase font-bold text-slate-500 mt-1">{stat.label}</div>
                       </div>
                     ))}
+                  </div>
+                  <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl text-sm text-indigo-900 mt-4">
+                    <span className="font-bold mr-1">Interpretation:</span>
+                    The manually entered students have an average Final Score of {analysisResult.stats.mean.toFixed(2)}. This provides a quick overview of the academic performance of the selected sample.
                   </div>
                 </div>
               ) : (
@@ -450,7 +467,32 @@ export const ManualAnalysisPage: React.FC = () => {
                  </div>
               )}
 
-              {/* 2. SUBJECT PERFORMANCE */}
+              {/* 2. PERFORMANCE DISTRIBUTION */}
+              {analysisResult.performanceDist && (
+                <FormulaCard
+                  conceptTitle="Performance Distribution"
+                  moduleBadge="DISTRIBUTION"
+                  formula="Categorical Bins"
+                  formulaDescription="Distribution of Final Scores into standard academic categories."
+                  results={[]}
+                  interpretation={`${analysisResult.performanceDist[0].count} students fall into the Excellent category, while ${analysisResult.performanceDist.slice(1).reduce((a:any,b:any)=>a+b.count,0)} students are in the Good/Average/Needs Improvement categories.`}
+                >
+                  <div className="h-64 w-full">
+                    <RC width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={analysisResult.performanceDist.filter((d:any)=>d.count>0)} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={60} label={({name, percent}) => `${name} (${(percent*100).toFixed(0)}%)`}>
+                          {analysisResult.performanceDist.filter((d:any)=>d.count>0).map((entry:any, index:number) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ borderRadius: '8px' }} />
+                      </PieChart>
+                    </RC>
+                  </div>
+                </FormulaCard>
+              )}
+
+              {/* 3. SUBJECT PERFORMANCE */}
               {analysisResult.subjectStats && (
                 <FormulaCard
                   conceptTitle="Subject Performance"
@@ -459,12 +501,13 @@ export const ManualAnalysisPage: React.FC = () => {
                   formulaDescription="Average scores across the manually entered students."
                   results={[
                     { label: 'Highest Average', value: analysisResult.subjectStats[0].subject, highlight: true },
-                    { label: 'Lowest Average', value: analysisResult.subjectStats[analysisResult.subjectStats.length-1].subject }
+                    { label: 'Lowest Average', value: analysisResult.subjectStats[analysisResult.subjectStats.length-1].subject },
+                    { label: 'Difference', value: (analysisResult.subjectStats[0].mean - analysisResult.subjectStats[analysisResult.subjectStats.length-1].mean).toFixed(1) + ' marks' }
                   ]}
-                  interpretation={`${analysisResult.subjectStats[0].subject} has the highest average score among the manually entered students.`}
+                  interpretation={`${analysisResult.subjectStats[0].subject} has the highest average performance among the manually entered students, while ${analysisResult.subjectStats[analysisResult.subjectStats.length-1].subject} has the lowest average.`}
                 >
                   <div className="h-64 w-full pt-4">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <RC width="100%" height="100%">
                       <BarChart data={analysisResult.subjectStats} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E2E8F0" />
                         <XAxis type="number" domain={[0, 100]} hide />
@@ -474,53 +517,56 @@ export const ManualAnalysisPage: React.FC = () => {
                           <LabelList dataKey="mean" position="right" formatter={(v: number) => v.toFixed(1)} style={{ fontSize: '11px', fill: '#4F46E5', fontWeight: 'bold' }} />
                         </Bar>
                       </BarChart>
-                    </ResponsiveContainer>
+                    </RC>
                   </div>
                 </FormulaCard>
               )}
 
               {analysisResult.correlations.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* 3. CORRELATION ANALYSIS */}
+                  {/* 4. CORRELATION ANALYSIS */}
                   <FormulaCard
                     conceptTitle="Correlation Analysis"
                     moduleBadge="CORRELATION"
-                    formula="Correlation with Final Score"
-                    formulaDescription="Pearson correlation between each factor and Final Score."
+                    formula="Pearson r"
+                    formulaDescription="Strongest academic factor relationship with Final Score."
                     results={[
-                      { label: 'Strongest Relationship', value: analysisResult.correlations[0]?.label || 'N/A', highlight: true }
+                      { label: 'Pearson r', value: analysisResult.correlations[0].corr.toFixed(3), highlight: true },
+                      { label: 'Direction', value: analysisResult.correlations[0].corr > 0 ? 'Positive' : 'Negative' },
+                      { label: 'Strength', value: Math.abs(analysisResult.correlations[0].corr) >= 0.8 ? 'Very Strong' : Math.abs(analysisResult.correlations[0].corr) >= 0.6 ? 'Strong' : Math.abs(analysisResult.correlations[0].corr) >= 0.4 ? 'Moderate' : Math.abs(analysisResult.correlations[0].corr) >= 0.2 ? 'Weak' : 'Very Weak' }
                     ]}
-                    interpretation={`${analysisResult.correlations[0]?.label || 'None'} has the strongest ${analysisResult.correlations[0]?.corr > 0 ? 'positive' : 'negative'} correlation with Final Score in the manually entered dataset.`}
+                    interpretation={`Pearson correlation r = ${analysisResult.correlations[0].corr.toFixed(2)} indicates a ${Math.abs(analysisResult.correlations[0].corr) >= 0.6 ? 'strong' : Math.abs(analysisResult.correlations[0].corr) >= 0.4 ? 'moderate' : 'weak'} ${analysisResult.correlations[0].corr > 0 ? 'positive' : 'negative'} relationship between ${analysisResult.correlations[0].label} and Final Score. In this manually entered sample, students with higher ${analysisResult.correlations[0].label} generally tend to have ${analysisResult.correlations[0].corr > 0 ? 'higher' : 'lower'} Final Scores.`}
                   >
                     <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={analysisResult.correlations} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E2E8F0" />
-                          <XAxis type="number" domain={[-1, 1]} tick={{ fontSize: 10 }} />
-                          <YAxis dataKey="label" type="category" width={100} tick={{ fontSize: 10, fill: '#334155', fontWeight: 600 }} />
-                          <Tooltip cursor={{ fill: '#F8FAFC' }} contentStyle={{ borderRadius: '12px' }} formatter={(val: number) => [val.toFixed(3), 'r']} />
-                          <Bar dataKey="corr" fill="#8B5CF6" barSize={14} radius={[0, 4, 4, 0]}>
-                            <LabelList dataKey="corr" position="right" formatter={(v: number) => v.toFixed(2)} style={{ fontSize: '10px', fill: '#7C3AED', fontWeight: 'bold' }} />
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <RC width="100%" height="100%">
+                        <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                          <XAxis type="number" dataKey="x" name={analysisResult.correlations[0].label} domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
+                          <YAxis type="number" dataKey="y" name="Final Score" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
+                          <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
+                          <Legend wrapperStyle={{ fontSize: '11px' }} />
+                          <Scatter name="Students" data={analysisResult.parsedData.map((d: any) => ({ x: d[analysisResult.correlations[0].key], y: d.Final_Score }))} fill="#8B5CF6" />
+                        </ScatterChart>
+                      </RC>
                     </div>
                   </FormulaCard>
 
-                  {/* 4. COVARIANCE ANALYSIS */}
+                  {/* 5. COVARIANCE ANALYSIS */}
                   <FormulaCard
                     conceptTitle="Covariance Analysis"
                     moduleBadge="COVARIANCE"
-                    formula="Covariance with Final Score"
+                    formula="Cov(X, Y)"
                     formulaDescription="Direction of joint variation with Final Score."
                     results={[
-                      { label: 'Largest Covariance', value: analysisResult.covariances[0]?.label || 'N/A', highlight: true }
+                      { label: 'Selected Variable', value: analysisResult.covariances[0].label, highlight: true },
+                      { label: 'Covariance', value: analysisResult.covariances[0].cov.toFixed(2) },
+                      { label: 'Direction', value: analysisResult.covariances[0].cov > 0 ? 'Positive' : analysisResult.covariances[0].cov < 0 ? 'Negative' : 'Near-zero' }
                     ]}
-                    interpretation={`Positive covariance means variables tend to increase together. Negative means one increases while the other decreases.`}
+                    interpretation={`The covariance between ${analysisResult.covariances[0].label} and Final Score is ${analysisResult.covariances[0].cov.toFixed(2)}, indicating a ${analysisResult.covariances[0].cov > 0 ? 'positive' : analysisResult.covariances[0].cov < 0 ? 'negative' : 'weak'} tendency for the variables to vary together. ${analysisResult.covariances[0].cov > 0 ? 'Both variables tend to increase together.' : analysisResult.covariances[0].cov < 0 ? 'One variable tends to increase while the other decreases.' : 'Little linear co-variation is observed.'}`}
                   >
                     <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={analysisResult.covariances} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                      <RC width="100%" height="100%">
+                        <BarChart data={analysisResult.covariances.slice(0, 5)} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E2E8F0" />
                           <XAxis type="number" tick={{ fontSize: 10 }} />
                           <YAxis dataKey="label" type="category" width={100} tick={{ fontSize: 10, fill: '#334155', fontWeight: 600 }} />
@@ -529,7 +575,7 @@ export const ManualAnalysisPage: React.FC = () => {
                             <LabelList dataKey="cov" position="right" formatter={(v: number) => v.toFixed(1)} style={{ fontSize: '10px', fill: '#E11D48', fontWeight: 'bold' }} />
                           </Bar>
                         </BarChart>
-                      </ResponsiveContainer>
+                      </RC>
                     </div>
                   </FormulaCard>
                 </div>
@@ -539,7 +585,7 @@ export const ManualAnalysisPage: React.FC = () => {
                 </div>
               )}
 
-              {/* 5. CORRELATION HEATMAP */}
+              {/* 6. CORRELATION HEATMAP */}
               {analysisResult.corrMatrix && analysisResult.corrMatrix.length > 0 && (
                 <FormulaCard
                   conceptTitle="Correlation Heatmap"
@@ -547,11 +593,19 @@ export const ManualAnalysisPage: React.FC = () => {
                   formula="Manual Dataset Matrix"
                   formulaDescription="Pairwise Pearson correlation coefficients among all variables."
                   results={[]}
-                  interpretation="The heatmap shows the strength and direction of linear relationships between all pairs of academic factors in your manual dataset."
+                  interpretation="The heatmap shows the strength and direction of pairwise linear relationships among the academic variables in the manually entered dataset."
                 >
                   <div className="w-full overflow-x-auto pb-4">
+                    {analysisResult.stats.total < 10 && (
+                      <div className="mb-4 bg-amber-50 text-amber-800 p-3 rounded-xl border border-amber-200 text-sm font-bold flex items-center gap-2">
+                        <span>Small sample warning: Correlation values based on a very small number of students should be interpreted cautiously.</span>
+                      </div>
+                    )}
+                    <div className="text-xs font-bold text-slate-500 mb-2">
+                      Strongest Relationship: {analysisResult.correlations[0]?.label} ↔ Final Score, r = {analysisResult.correlations[0]?.corr.toFixed(2)}
+                    </div>
                     <div className="min-w-[600px] h-[400px]">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <RC width="100%" height="100%">
                         <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 100 }}>
                           <XAxis type="category" dataKey="x" interval={0} tick={{ fontSize: 10, angle: -45, textAnchor: 'end' }} />
                           <YAxis type="category" dataKey="y" interval={0} tick={{ fontSize: 10 }} />
@@ -571,149 +625,144 @@ export const ManualAnalysisPage: React.FC = () => {
                             })}
                           </Scatter>
                         </ScatterChart>
-                      </ResponsiveContainer>
+                      </RC>
                     </div>
                   </div>
                 </FormulaCard>
               )}
 
-              {/* 6. REGRESSION ANALYSIS */}
-              {analysisResult.multipleModel ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 7. REGRESSION & PREDICTION */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {analysisResult.simpleModel ? (
                   <FormulaCard
-                    conceptTitle="Multiple Linear Regression"
+                    conceptTitle="Simple Linear Regression"
                     moduleBadge="REGRESSION"
-                    formula="Final Score Prediction Model"
-                    formulaDescription="Using all academic variables to predict Final Score."
+                    formula="y = β₀ + β₁x"
+                    formulaDescription="Predicts Final Score using the strongest correlated factor."
                     results={[
-                      { label: 'R²', value: analysisResult.multipleModel.r2.toFixed(4), highlight: true },
-                      { label: 'Adj R²', value: analysisResult.multipleModel.adjustedR2?.toFixed(4) || 'N/A' },
-                      { label: 'RMSE', value: analysisResult.multipleModel.rmse.toFixed(2) }
+                      { label: 'Equation', value: analysisResult.simpleModel.equation, highlight: true },
+                      { label: 'R²', value: analysisResult.simpleModel.r2.toFixed(4) },
+                      { label: 'RMSE', value: analysisResult.simpleModel.rmse.toFixed(2) }
                     ]}
-                    interpretation={`The model explains ${(analysisResult.multipleModel.r2 * 100).toFixed(1)}% of the variation in Final Score in this manual dataset.`}
+                    interpretation={`The simple regression model explains ${(analysisResult.simpleModel.r2 * 100).toFixed(1)}% of the variation in Final Score using ${analysisResult.simpleModel.label}.`}
                   >
-                    <div className="h-full flex flex-col justify-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                      <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Regression Equation</div>
-                      <div className="text-sm font-mono text-indigo-900 bg-white p-4 rounded-lg border border-indigo-100 shadow-sm overflow-x-auto whitespace-nowrap">
-                        {analysisResult.multipleModel.equation}
-                      </div>
+                    <div className="h-64 w-full">
+                      <RC width="100%" height="100%">
+                        <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                          <XAxis type="number" dataKey="x" name={analysisResult.simpleModel.label} domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
+                          <YAxis type="number" dataKey="y" name="Final Score" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
+                          <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
+                          <Legend wrapperStyle={{ fontSize: '11px' }} />
+                          <Scatter name="Actual" data={analysisResult.parsedData.map((d: any) => ({ x: d[analysisResult.simpleModel.feature], y: d.Final_Score }))} fill="#6366F1" />
+                          <LineChart data={analysisResult.parsedData.map((d: any) => ({
+                            x: d[analysisResult.simpleModel.feature], 
+                            yPred: analysisResult.simpleModel.intercept + analysisResult.simpleModel.coefficients.slope * d[analysisResult.simpleModel.feature]
+                          })).sort((a:any, b:any) => a.x - b.x)}>
+                            <Line dataKey="yPred" stroke="#F43F5E" strokeWidth={2} dot={false} activeDot={false} isAnimationActive={false} />
+                          </LineChart>
+                        </ScatterChart>
+                      </RC>
                     </div>
                   </FormulaCard>
+                ) : (
+                  <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col justify-center text-center">
+                    <div className="text-slate-900 font-bold mb-2">Regression unavailable</div>
+                    <div className="text-slate-600 text-sm">Why?<br/>The current manual dataset contains only {analysisResult.stats?.total || 0} students, which is insufficient for a reliable multiple regression model with the selected predictor variables.</div>
+                    <div className="text-indigo-600 font-bold mt-4 text-sm">Add more student records to enable regression and prediction.</div>
+                  </div>
+                )}
 
-                  {/* 7. ACTUAL VS PREDICTED */}
+                {/* 8. ACTUAL VS PREDICTED */}
+                {analysisResult.simpleModel ? (
                   <FormulaCard
                     conceptTitle="Actual vs Predicted"
                     moduleBadge="PREDICTION ERROR"
                     formula="y vs ŷ"
-                    formulaDescription="Comparing the true Final Score with the model's prediction."
+                    formulaDescription="Comparing the true Final Score with the simple model's prediction."
                     results={[]}
                     interpretation="Points closer to the y = x line indicate more accurate predictions."
                   >
                     <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <RC width="100%" height="100%">
                         <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                           <XAxis type="number" dataKey="actual" name="Actual" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
                           <YAxis type="number" dataKey="predicted" name="Predicted" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
-                          <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
+                          <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '8px', fontSize: '12px' }} 
+                            formatter={(val:number, name:string, props:any) => {
+                              if (name === 'Actual') return [`${val}`, name];
+                              if (name === 'Predicted') return [`${val.toFixed(1)} (Error: ${(val - props.payload.actual).toFixed(1)})`, name];
+                              return [val, name];
+                            }}
+                          />
                           <Legend wrapperStyle={{ fontSize: '11px' }} />
                           <ReferenceLine x={0} y={0} />
                           <Scatter name="Students" data={analysisResult.parsedData.map((d: any) => {
-                            const pred = predictStudentScore(d, analysisResult.multipleModel);
-                            return { actual: d.Final_Score, predicted: pred.predictedScore };
-                          })} fill="#6366F1" />
+                            const pred = analysisResult.simpleModel.intercept + analysisResult.simpleModel.coefficients.slope * d[analysisResult.simpleModel.feature];
+                            return { actual: d.Final_Score, predicted: pred };
+                          })} fill="#10B981" />
                           <ReferenceLine segment={[{ x: 0, y: 0 }, { x: 100, y: 100 }]} stroke="#94A3B8" strokeDasharray="5 5" name="y = x" />
                         </ScatterChart>
-                      </ResponsiveContainer>
+                      </RC>
                     </div>
                   </FormulaCard>
-                </div>
-              ) : (
-                analysisResult.hasFinalScores && (
-                  <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 text-amber-800 text-sm font-semibold text-center">
-                    Multiple linear regression cannot be calculated because the manual dataset is too small relative to the number of predictor variables. Add more students to enable regression analysis.
+                ) : (
+                  <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col justify-center text-center">
+                    <div className="text-slate-600 font-bold mb-2">Actual vs Predicted unavailable</div>
+                    <div className="text-slate-500 text-sm">Actual Final Score was not provided for enough students, so prediction accuracy cannot be evaluated.</div>
                   </div>
-                )
-              )}
+                )}
+              </div>
 
-              {/* 8. NEW STUDENT PREDICTION */}
-              {analysisResult.multipleModel && (
-                <div className="bg-gradient-to-r from-slate-800 to-indigo-900 rounded-2xl p-8 border border-slate-700 shadow-xl text-white">
-                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-indigo-400" />
-                    Predict a New Student's Final Score
-                  </h3>
-                  <p className="text-sm text-slate-300 mb-6">
-                    Use the regression model built specifically from your manual dataset to predict performance for a new student profile.
-                  </p>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    {requiredKeys.map(k => {
-                      const isValid = validateValue(k, newStudent[k], true);
-                      return (
-                        <div key={k} className="space-y-1 relative group">
-                          <label className="text-[11px] font-bold text-slate-300">{limits[k].label}</label>
-                          <input type="text" value={newStudent[k]} onChange={e => setNewStudent({...newStudent, [k]: e.target.value})}
-                            className={`w-full p-2.5 bg-slate-900/50 border rounded-xl text-sm font-semibold outline-none text-white ${!isValid ? 'border-rose-400' : 'border-slate-600 focus:border-indigo-400'}`} 
-                            placeholder={limits[k].desc}
-                          />
-                          {!isValid && <div className="absolute top-full left-0 mt-1 z-50 hidden group-hover:block w-48 p-2 bg-slate-800 text-white text-[10px] rounded shadow-lg border border-rose-500">{limits[k].label} must be between {limits[k].min} and {limits[k].max}.</div>}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex flex-col md:flex-row gap-6 items-center">
-                    <button 
-                      onClick={handlePredictNew}
-                      className="w-full md:w-auto px-6 py-3 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl font-bold shadow-lg transition-colors"
-                    >
-                      Predict Final Score
-                    </button>
-                    
-                    {newPrediction && (
-                      <div className="flex-1 flex gap-4 w-full bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-                        <div>
-                          <div className="text-[11px] uppercase font-bold text-slate-400 mb-1">Predicted Score</div>
-                          <div className="text-3xl font-extrabold text-indigo-300">{newPrediction.predictedScore} <span className="text-sm font-normal text-slate-500">/ 100</span></div>
-                        </div>
-                        <div className="pl-4 border-l border-slate-700">
-                          <div className="text-[11px] uppercase font-bold text-slate-400 mb-1">Performance Category</div>
-                          <div className={`text-lg font-bold ${
-                            newPrediction.category === 'Excellent' || newPrediction.category === 'Outstanding' ? 'text-emerald-400' :
-                            newPrediction.category === 'Good' ? 'text-indigo-400' :
-                            newPrediction.category === 'Average' ? 'text-amber-400' : 'text-rose-400'
-                          }`}>{newPrediction.category}</div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* 9. FINAL INTERPRETATION */}
+              {/* 9. OVERALL MANUAL DATASET INSIGHT */}
               {analysisResult.hasFinalScores && analysisResult.stats && analysisResult.correlations.length > 0 && (
-                <div className="bg-indigo-50 rounded-2xl p-6 md:p-8 text-sm text-indigo-900 border border-indigo-100 shadow-sm leading-relaxed space-y-4">
-                  <h3 className="text-lg font-bold text-indigo-950 mb-4 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-indigo-600" /> Manual Dataset Final Interpretation
+                <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-3xl p-8 shadow-xl text-white mt-8 border border-indigo-500/30">
+                  <h3 className="text-2xl font-black text-white mb-6 flex items-center gap-3">
+                    <Sparkles className="w-6 h-6 text-indigo-400" /> Overall Interpretation
                   </h3>
-                  <p>
-                    The manually entered dataset contains <strong>{analysisResult.stats.total} students</strong> with an average Final Score of <strong>{analysisResult.stats.mean.toFixed(1)}</strong>. 
-                    Among the variables analyzed, <strong>{analysisResult.correlations[0]?.label || 'None'}</strong> shows the strongest correlation with Final Score (r = <strong>{analysisResult.correlations[0]?.corr?.toFixed(2) || '0'}</strong>).
-                  </p>
-                  <p>
-                    The covariance analysis indicates that higher {analysisResult.correlations[0]?.label || 'scores'} tend to occur with {analysisResult.covariances[0]?.cov > 0 ? 'higher' : 'lower'} Final Scores in this specific dataset.
-                  </p>
-                  {analysisResult.multipleModel && (
-                    <p>
-                      The multiple linear regression model built from these manual records explains approximately <strong>{(analysisResult.multipleModel.r2 * 100).toFixed(1)}%</strong> of the variation in Final Score, with an RMSE of <strong>{analysisResult.multipleModel.rmse.toFixed(1)} marks</strong>.
-                    </p>
-                  )}
-                  <p className="font-semibold text-base pt-2 border-t border-indigo-200/60">
-                    Overall, the analysis confirms that the relationships mathematically modeled in this manual subset {analysisResult.multipleModel && analysisResult.multipleModel.r2 > 0.5 ? 'demonstrate strong predictive patterns' : 'show moderate or weak predictive patterns'}, highlighting the specific trends you entered.
-                  </p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                    <div>
+                      <div className="text-indigo-300 text-xs font-bold uppercase tracking-wider mb-1">Students Analyzed</div>
+                      <div className="text-3xl font-extrabold text-white">{analysisResult.stats.total}</div>
+                    </div>
+                    <div>
+                      <div className="text-indigo-300 text-xs font-bold uppercase tracking-wider mb-1">Average Final Score</div>
+                      <div className="text-3xl font-extrabold text-white">{analysisResult.stats.mean.toFixed(1)}</div>
+                    </div>
+                    <div>
+                      <div className="text-indigo-300 text-xs font-bold uppercase tracking-wider mb-1">Best Subject</div>
+                      <div className="text-xl font-bold text-white leading-tight">{analysisResult.subjectStats[0].subject}</div>
+                    </div>
+                    <div>
+                      <div className="text-indigo-300 text-xs font-bold uppercase tracking-wider mb-1">Strongest Factor</div>
+                      <div className="text-xl font-bold text-emerald-400 leading-tight">{analysisResult.correlations[0].label} <span className="text-sm font-normal opacity-80">(r={analysisResult.correlations[0].corr.toFixed(2)})</span></div>
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-indigo-950/50 rounded-2xl border border-indigo-500/20">
+                    <div className="text-sm leading-relaxed text-indigo-100">
+                      <span className="font-bold text-white mr-2">Overall:</span>
+                      The manually entered sample shows a strong dependency on <span className="text-emerald-400 font-bold">{analysisResult.correlations[0].label}</span>. 
+                      Covariance direction is <span className="font-bold text-white">{analysisResult.covariances[0].cov > 0 ? 'Positive' : 'Negative'}</span>. 
+                      Regression Status: <span className="font-bold text-white">{analysisResult.multipleModel ? 'Available' : 'Not available because sample size is insufficient'}</span>.
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* 10. LIMITATIONS */}
+              <div className="mt-6 p-5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-600 text-xs leading-relaxed">
+                <h4 className="font-bold text-slate-800 mb-2 text-sm uppercase">Limitations</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {analysisResult.stats?.total < 30 && <li><strong className="text-rose-600">Small sample size:</strong> May produce unstable statistical estimates.</li>}
+                  <li>Correlation does not imply causation.</li>
+                  <li>Covariance depends on the measurement scale of the entered data.</li>
+                  <li>Regression requires sufficient observations relative to predictor variables.</li>
+                  <li>Manual results describe only the entered students and should not be generalized to the entire dataset.</li>
+                </ul>
+              </div>
             </>
           )}
         </div>

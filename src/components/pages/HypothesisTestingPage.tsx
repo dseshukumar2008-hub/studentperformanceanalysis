@@ -125,8 +125,8 @@ export const HypothesisTestingPage: React.FC = () => {
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
               <div className={`text-base sm:text-lg font-bold p-4 rounded-lg border ${meanTestRes.rejectNull ? 'bg-rose-50 border-rose-200 text-rose-900' : 'bg-slate-50 border-slate-200 text-slate-800'}`}>
                 {meanTestRes.rejectNull 
-                  ? `YES — The mean ${targetVar.replace('_Marks', '').replace('_', ' ')} is significantly different from ${hypothesizedMean}.`
-                  : `NO — We do not have sufficient evidence to conclude that the mean ${targetVar.replace('_Marks', '').replace('_', ' ')} is significantly different from ${hypothesizedMean}.`}
+                  ? `YES — The population mean ${targetVar.replace('_Marks', '').replace('_', ' ')} is significantly ${meanTestRes.sampleMean > hypothesizedMean ? 'higher' : 'lower'} than ${hypothesizedMean} (Sample Mean = ${meanTestRes.sampleMean}).`
+                  : `NO — We do not have sufficient evidence to conclude that the population mean ${targetVar.replace('_Marks', '').replace('_', ' ')} is significantly different from ${hypothesizedMean}.`}
               </div>
               <div className="flex flex-col sm:flex-row sm:gap-6 text-sm font-mono font-bold text-slate-500 border-b border-slate-100 pb-3">
                 <span>Significance Level: α = {alpha}</span>

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart, Line, Legend } from 'recharts';
 import { useData } from '../../context/DataContext';
 import { FormulaCard } from '../common/FormulaCard';
 import {
   fitSimpleLinearRegression,
-  fitMultipleLinearRegression,
-  fitPolynomialRegression
+  fitMultipleLinearRegression
 } from '../../utils/mathEngine';
 import type { NumericalFeature } from '../../types';
 
@@ -13,14 +12,11 @@ export const RegressionPage: React.FC = () => {
   const { data } = useData();
 
   const [simplePredictor, setSimplePredictor] = useState<NumericalFeature>('Study_Hours_Per_Day');
-  const [polyDegree, setPolyDegree] = useState<number>(2);
-
   const xVals = data.map(s => s[simplePredictor] as number);
   const yVals = data.map(s => s.Final_Score);
 
   const simpleRes = fitSimpleLinearRegression(xVals, yVals);
   const multipleRes = fitMultipleLinearRegression(data);
-  const polyRes = fitPolynomialRegression(xVals, yVals, polyDegree);
 
   // Scatter data with fitted linear trendline
   const scatterData = data.slice(0, 200).map(s => {
@@ -38,14 +34,6 @@ export const RegressionPage: React.FC = () => {
     feature: feat.replace('_Marks', '').replace('_Percentage', '').replace('_Per_Day', '').replace('_', ' '),
     coefficient: coeff
   })).sort((a, b) => Math.abs(b.coefficient) - Math.abs(a.coefficient));
-
-  // Comparison table models
-  const models = [
-    { name: 'Simple Linear (Study Hours)', r2: simpleRes.r2, mae: simpleRes.mae, rmse: simpleRes.rmse },
-    { name: 'Polynomial Deg 2 (Study Hours)', r2: fitPolynomialRegression(xVals, yVals, 2).r2, mae: fitPolynomialRegression(xVals, yVals, 2).mae, rmse: fitPolynomialRegression(xVals, yVals, 2).rmse },
-    { name: 'Polynomial Deg 3 (Study Hours)', r2: fitPolynomialRegression(xVals, yVals, 3).r2, mae: fitPolynomialRegression(xVals, yVals, 3).mae, rmse: fitPolynomialRegression(xVals, yVals, 3).rmse },
-    { name: 'Multiple Linear (All 8 Features)', r2: multipleRes.r2, mae: multipleRes.mae, rmse: multipleRes.rmse, isBest: true }
-  ];
 
   return (
     <div className="space-y-8 pb-12">
@@ -98,13 +86,15 @@ export const RegressionPage: React.FC = () => {
 
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
+              <ComposedChart margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="x" type="number" name={simplePredictor} tick={{ fontSize: 10 }} />
+                <XAxis dataKey="x" type="number" name={simplePredictor.replace(/_/g, ' ')} tick={{ fontSize: 10 }} />
                 <YAxis dataKey="y" type="number" name="Final Score" tick={{ fontSize: 10 }} />
                 <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: '#0F172A', color: '#fff', borderRadius: '12px', fontSize: '12px' }} />
-                <Scatter name="Students" data={scatterData} fill="#4F46E5" />
-              </ScatterChart>
+                <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                <Scatter name="Actual Students" data={scatterData} fill="#4F46E5" />
+                <Line name={`Regression Line (ŷ = ${simpleRes.equation})`} dataKey="yPred" data={scatterData} stroke="#F43F5E" strokeWidth={3} dot={false} activeDot={false} isAnimationActive={false} />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -167,86 +157,7 @@ export const RegressionPage: React.FC = () => {
         </div>
       </FormulaCard>
 
-      {/* POLYNOMIAL REGRESSION */}
-      <FormulaCard
-        conceptTitle="Polynomial Regression (Nonlinear Curves)"
-        moduleBadge="MODULE X"
-        formula="ŷ = β₀ + β₁x + β₂x² + ... + β_d x^d"
-        formulaDescription="Fitting non-linear curves to capture non-linear academic returns."
-        results={[
-          { label: 'Polynomial Degree', value: `Degree ${polyDegree}`, highlight: true },
-          { label: 'Polynomial R²', value: polyRes.r2, highlight: true },
-          { label: 'Polynomial MAE', value: polyRes.mae },
-          { label: 'Polynomial RMSE', value: polyRes.rmse }
-        ]}
-        interpretation={`Fitting a degree ${polyDegree} polynomial curve yields R² = ${polyRes.r2}. Polynomial terms model subtle non-linear academic returns.`}
-      >
-        <div className="space-y-4">
-          <div className="flex items-center space-x-3 text-xs font-semibold">
-            <span>Select Polynomial Degree:</span>
-            {[2, 3, 4].map(deg => (
-              <button
-                key={deg}
-                onClick={() => setPolyDegree(deg)}
-                className={`px-3 py-1 rounded-xl font-bold transition ${polyDegree === deg ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-200 text-slate-700'}`}
-              >
-                Degree {deg}
-              </button>
-            ))}
-          </div>
 
-          <div className="p-3 bg-slate-900 text-indigo-300 font-mono text-xs rounded-xl overflow-x-auto">
-            Equation: {polyRes.equation}
-          </div>
-        </div>
-      </FormulaCard>
-
-      {/* MODEL COMPARISON TABLE */}
-      <FormulaCard
-        conceptTitle="Comprehensive Regression Model Comparison Table"
-        moduleBadge="MODULE X"
-        formula="Best Model ⟹ Maximize R² , Minimize MAE & RMSE"
-        formulaDescription="Comparative performance benchmarking across all tested regression models."
-        results={[
-          { label: 'Best Performing Model', value: 'Multiple Linear Regression', highlight: true },
-          { label: 'Highest R²', value: multipleRes.r2, highlight: true },
-          { label: 'Lowest RMSE', value: multipleRes.rmse, highlight: true }
-        ]}
-        interpretation="Multiple Linear Regression outperforms single-variable models by capturing complementary contributions from study hours, attendance, and all subject marks."
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border border-slate-200 rounded-xl overflow-hidden">
-            <thead className="bg-slate-900 text-white font-bold uppercase">
-              <tr>
-                <th className="px-4 py-3">Regression Model Name</th>
-                <th className="px-4 py-3">R² Score</th>
-                <th className="px-4 py-3">MAE</th>
-                <th className="px-4 py-3">RMSE</th>
-                <th className="px-4 py-3">Evaluation Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium">
-              {models.map((m, idx) => (
-                <tr key={idx} className={m.isBest ? 'bg-indigo-50/80 font-bold' : 'hover:bg-slate-50'}>
-                  <td className="px-4 py-3 font-bold text-slate-900">{m.name}</td>
-                  <td className="px-4 py-3 font-mono text-indigo-700 font-bold">{m.r2}</td>
-                  <td className="px-4 py-3 font-mono">{m.mae}</td>
-                  <td className="px-4 py-3 font-mono">{m.rmse}</td>
-                  <td className="px-4 py-3">
-                    {m.isBest ? (
-                      <span className="px-2.5 py-1 bg-emerald-600 text-white font-bold rounded-lg text-[10px] uppercase shadow-sm">
-                        Best Model ★
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 text-[11px]">Baseline</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </FormulaCard>
     </div>
   );
 };

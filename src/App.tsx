@@ -14,7 +14,6 @@ import { HypothesisTestingPage } from './components/pages/HypothesisTestingPage'
 import { CorrelationPage } from './components/pages/CorrelationPage';
 import { RegressionPage } from './components/pages/RegressionPage';
 import { PredictionPage } from './components/pages/PredictionPage';
-import { ManualAnalysisPage } from './components/pages/ManualAnalysisPage';
 import { ActualVsPredictedPage } from './components/pages/ActualVsPredictedPage';
 import { SubjectAnalysisPage } from './components/pages/SubjectAnalysisPage';
 import { MathematicalReportPage } from './components/pages/MathematicalReportPage';
@@ -49,8 +48,6 @@ const AppContent: React.FC = () => {
         return <RegressionPage />;
       case 'prediction':
         return <PredictionPage />;
-      case 'manual-analysis':
-        return <ManualAnalysisPage />;
       case 'actual-vs-predicted':
         return <ActualVsPredictedPage />;
       case 'subject-analysis':

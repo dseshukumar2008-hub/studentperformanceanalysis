@@ -187,7 +187,7 @@ export const MathematicalReportPage: React.FC = () => {
               </div>
 
               <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-100 text-xs text-amber-950 font-medium leading-relaxed">
-                <span className="text-amber-800 font-bold uppercase text-[10px] block mb-0.5">Faculty Academic Interpretation:</span>
+                <span className="text-amber-800 font-bold uppercase text-[10px] block mb-0.5">Interpretation:</span>
                 {sec.interpretation}
               </div>
             </div>

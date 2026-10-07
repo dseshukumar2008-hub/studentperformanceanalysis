@@ -151,7 +151,6 @@ export type PageId =
   | 'correlation'
   | 'regression'
   | 'prediction'
-  | 'manual-analysis'
   | 'actual-vs-predicted'
   | 'subject-analysis'
   | 'mathematical-report';

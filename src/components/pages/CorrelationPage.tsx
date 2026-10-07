@@ -420,40 +420,7 @@ export const CorrelationPage: React.FC = () => {
         </div>
       </FormulaCard>
 
-      {/* 5. PEARSON VS SPEARMAN */}
-      <FormulaCard
-        conceptTitle="Pearson vs Spearman Correlation"
-        moduleBadge="MODULE IX"
-        formula="ρ = 1 - (6 Σ d_i²) / [n(n² - 1)]"
-        formulaDescription="Comparing linear relationships (Pearson) with monotonic relationships (Spearman)."
-        results={[
-          { label: 'Pearson r', value: pearsonR.toFixed(4) },
-          { label: 'Spearman ρ', value: spearmanRho.toFixed(4), highlight: true },
-          { label: 'Absolute Difference |r − ρ|', value: Math.abs(pearsonR - spearmanRho).toFixed(4) }
-        ]}
-        interpretation={
-          <div className="space-y-2 text-[13px] leading-relaxed">
-            <strong className="text-amber-950 font-bold block">What this tells us:</strong>
-            <p>
-              Pearson r = {pearsonR.toFixed(4)} and Spearman ρ = {spearmanRho.toFixed(4)}, with an absolute difference of {Math.abs(pearsonR - spearmanRho).toFixed(4)}. 
-              {Math.abs(pearsonR - spearmanRho) < 0.05 
-                ? " Because the values are very close, the relationship is consistently linear and monotonic under both methods. This means the trend between the variables is robust and not heavily skewed by outliers."
-                : " Because the values differ noticeably, it suggests the relationship may be non-linear or influenced by outliers. The rank-based Spearman method is capturing a monotonic trend that the linear Pearson method is partially missing."}
-            </p>
-          </div>
-        }
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold">
-          <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 text-indigo-950 space-y-1">
-            <span className="font-bold text-indigo-900">Pearson Correlation (r = {pearsonR.toFixed(4)}):</span>
-            <p className="text-[11px] leading-relaxed">Assumes linear relationship between raw values.</p>
-          </div>
-          <div className="p-4 bg-violet-50 rounded-xl border border-violet-100 text-violet-950 space-y-1">
-            <span className="font-bold text-violet-900">Spearman Rank (ρ = {spearmanRho.toFixed(4)}):</span>
-            <p className="text-[11px] leading-relaxed">Evaluates monotonic relationships using ranked positions.</p>
-          </div>
-        </div>
-      </FormulaCard>
+
 
       {/* 6. KEY MATHEMATICAL INSIGHT */}
       <FormulaCard
