@@ -1,3 +1,4 @@
+import { jStat } from 'jstat';
 import type { StudentData, SummaryStats, FrequencyBin, StemAndLeafItem, BoxPlotStats, ProbabilityResult, DiscreteDistributionItem, RegressionMetrics, HypothesisTestResult, ProportionTestResult, TwoProportionTestResult } from '../types';
 
 // ==========================================
@@ -53,6 +54,7 @@ export function calculateStdDev(values: number[], isSample: boolean = true): num
 
 export function calculateQuartiles(values: number[]): { q1: number; q3: number; iqr: number } {
   if (values.length === 0) return { q1: 0, q3: 0, iqr: 0 };
+}
   const sorted = [...values].sort((a, b) => a - b);
   const q1 = calculateMedian(sorted.slice(0, Math.floor(sorted.length / 2)));
   const q3 = calculateMedian(sorted.slice(Math.ceil(sorted.length / 2)));
@@ -614,35 +616,36 @@ export function calculateConfidenceInterval(sample: number[], confidenceLevel: 0
 // 6. MODULE VII & VIII: HYPOTHESIS TESTING
 // ==========================================
 
-export function runOneSampleZTest(
+export function runOneSampleTTest(
   values: number[],
   hypothesizedMean: number,
-  alpha: 0.01 | 0.05 | 0.10,
-  populationStdDev: number
+  alpha: 0.01 | 0.05 | 0.10
 ): HypothesisTestResult {
   const n = values.length;
   const mean = calculateMean(values);
-  const se = populationStdDev / Math.sqrt(n);
+  const std = calculateStdDev(values, true); // SAMPLE standard deviation
+  const se = std / Math.sqrt(n);
 
   const testStatistic = (mean - hypothesizedMean) / se;
+  const df = n - 1;
 
-  // Approximate critical values for two-tailed test
-  const critMap = { 0.01: 2.576, 0.05: 1.96, 0.10: 1.645 };
-  const criticalValue = critMap[alpha];
+  // Two-tailed critical value using t-distribution
+  const criticalValue = Math.abs(jStat.studentt.inv(alpha / 2, df));
 
-  // Approximate p-value from Z statistic
-  const pValue = 2 * (1 - standardNormalCDF(Math.abs(testStatistic)));
+  // Two-tailed p-value using t-distribution
+  const pValue = jStat.studentt.cdf(-Math.abs(testStatistic), df) * 2;
   const rejectNull = Math.abs(testStatistic) > criticalValue;
 
   return {
     nullHypothesis: `H₀: μ = ${hypothesizedMean}`,
     alternativeHypothesis: `H₁: μ ≠ ${hypothesizedMean}`,
     sampleMean: parseFloat(mean.toFixed(2)),
-    sampleStdDev: parseFloat(populationStdDev.toFixed(2)),
+    sampleStdDev: parseFloat(std.toFixed(2)),
     sampleSize: n,
+    degreesOfFreedom: df,
     testStatistic: parseFloat(testStatistic.toFixed(3)),
     pValue: parseFloat(pValue.toFixed(4)),
-    criticalValue,
+    criticalValue: parseFloat(criticalValue.toFixed(3)),
     alpha,
     rejectNull,
     decision: rejectNull ? 'Reject H₀' : 'Fail to Reject H₀',

@@ -100,6 +100,7 @@ export interface HypothesisTestResult {
   sampleMean: number;
   sampleStdDev: number;
   sampleSize: number;
+  degreesOfFreedom?: number;
   testStatistic: number;
   pValue: number;
   criticalValue: number;
