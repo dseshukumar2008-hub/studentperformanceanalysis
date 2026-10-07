@@ -3,7 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useData } from '../../context/DataContext';
 import { FormulaCard } from '../common/FormulaCard';
 import {
-  runOneSampleMeanTest,
+  runOneSampleZTest,
   runOneProportionTest,
   runTwoProportionTest
 } from '../../utils/mathEngine';
@@ -14,13 +14,14 @@ export const HypothesisTestingPage: React.FC = () => {
 
   const [targetVar, setTargetVar] = useState<NumericalFeature>('Final_Score');
   const [hypothesizedMean, setHypothesizedMean] = useState<number>(65);
+  const [popStdDev, setPopStdDev] = useState<number>(15);
   const [alpha, setAlpha] = useState<0.01 | 0.05 | 0.10>(0.05);
 
   const [propThreshold, setPropThreshold] = useState<number>(70);
   const [hypothesizedP0, setHypothesizedP0] = useState<number>(0.50);
 
   const values = data.map(s => s[targetVar] as number);
-  const meanTestRes = runOneSampleMeanTest(values, hypothesizedMean, alpha);
+  const meanTestRes = runOneSampleZTest(values, hypothesizedMean, alpha, popStdDev);
 
   const onePropRes = runOneProportionTest(data, s => s.Final_Score >= propThreshold, hypothesizedP0, alpha);
 
@@ -83,15 +84,16 @@ export const HypothesisTestingPage: React.FC = () => {
 
       {/* MODULE VII: HYPOTHESIS TESTING FOR MEAN */}
       <FormulaCard
-        conceptTitle="One-Sample Hypothesis Test for Mean (Module VII)"
+        conceptTitle="One-Sample Z-Test for Mean (Module VIII)"
         moduleBadge="MODULE VII"
-        formula="t = (x̄ - μ₀) / (s / √n)  or  Z = (x̄ - μ₀) / (σ / √n)"
-        formulaDescription="Testing whether the population mean score equals hypothesized value μ₀."
+        formula="Z = (x̄ - μ₀) / (σ / √n)"
+        formulaDescription="Testing whether the population mean score equals hypothesized value μ₀ using Z-test."
         results={[
           { label: 'Null Hypothesis', value: meanTestRes.nullHypothesis },
           { label: 'Alternative H₁', value: meanTestRes.alternativeHypothesis },
           { label: 'Sample Mean (x̄)', value: meanTestRes.sampleMean, highlight: true },
-          { label: 'Test Statistic (Z/t)', value: meanTestRes.testStatistic, highlight: true },
+          { label: 'Population Std Dev (σ)', value: popStdDev },
+          { label: 'Z Test Statistic', value: meanTestRes.testStatistic, highlight: true },
           { label: 'p-Value', value: meanTestRes.pValue, highlight: true },
           { label: 'Critical Value (Z_crit)', value: `±${meanTestRes.criticalValue}` },
           { label: 'Decision', value: meanTestRes.decision, highlight: true }
@@ -170,6 +172,18 @@ export const HypothesisTestingPage: React.FC = () => {
                 className="w-full accent-indigo-600"
               />
             </div>
+            <div className="space-y-1 sm:col-span-2">
+              <span>Population Standard Deviation σ ({popStdDev}):</span>
+              <input
+                type="range"
+                min="1"
+                max="30"
+                step="0.5"
+                value={popStdDev}
+                onChange={e => setPopStdDev(Number(e.target.value))}
+                className="w-full accent-indigo-600"
+              />
+            </div>
           </div>
 
           <div className="bg-indigo-50/60 border border-indigo-100 p-4 rounded-xl space-y-3 mb-2 shadow-sm">
@@ -186,7 +200,7 @@ export const HypothesisTestingPage: React.FC = () => {
           <div className="border border-slate-200 rounded-xl bg-white p-6 space-y-6 shadow-sm">
             <div className="text-center">
               <h4 className="font-bold text-lg text-slate-800">Sampling Distribution & Rejection Regions</h4>
-              <p className="text-xs text-slate-500 mt-1">Standardized academic visualization of hypothesis testing (t-distribution approximation).</p>
+              <p className="text-xs text-slate-500 mt-1">Standardized academic visualization of hypothesis testing (Standard Normal Z Distribution).</p>
             </div>
             
             <div className="h-64 w-full">
@@ -199,7 +213,7 @@ export const HypothesisTestingPage: React.FC = () => {
                     domain={[-4, 4]} 
                     ticks={[-4, -3, -2, -1, 0, 1, 2, 3, 4]}
                     tick={{ fontSize: 11 }}
-                    label={{ value: 't value', position: 'bottom', fontSize: 12, fontWeight: 'bold', offset: 0 }} 
+                    label={{ value: 'Z value', position: 'bottom', fontSize: 12, fontWeight: 'bold', offset: 0 }} 
                   />
                   <YAxis hide />
                   <Tooltip 
@@ -219,10 +233,10 @@ export const HypothesisTestingPage: React.FC = () => {
                   <Area type="monotone" dataKey="rejectionRight" stroke="#EF4444" fill="#FEF2F2" strokeWidth={2} fillOpacity={0.8} connectNulls={false} isAnimationActive={false} />
 
                   {/* Left Critical Boundary */}
-                  <ReferenceLine x={-meanTestRes.criticalValue} stroke="#EF4444" strokeDasharray="4 4" label={{ value: `−t critical`, position: 'top', fill: '#EF4444', fontSize: 11, fontWeight: 'bold' }} />
+                  <ReferenceLine x={-meanTestRes.criticalValue} stroke="#EF4444" strokeDasharray="4 4" label={{ value: `-Zcritical`, position: 'top', fill: '#EF4444', fontSize: 11, fontWeight: 'bold' }} />
                   
                   {/* Right Critical Boundary */}
-                  <ReferenceLine x={meanTestRes.criticalValue} stroke="#EF4444" strokeDasharray="4 4" label={{ value: `+t critical`, position: 'top', fill: '#EF4444', fontSize: 11, fontWeight: 'bold' }} />
+                  <ReferenceLine x={meanTestRes.criticalValue} stroke="#EF4444" strokeDasharray="4 4" label={{ value: `+Zcritical`, position: 'top', fill: '#EF4444', fontSize: 11, fontWeight: 'bold' }} />
                   
                   {/* Test Statistic Marker */}
                   <ReferenceLine x={displayTestStat} stroke="#10B981" strokeWidth={2.5} label={{ value: testStatLabel, position: 'top', fill: '#10B981', fontSize: 11, fontWeight: 'bold' }} />
@@ -243,7 +257,7 @@ export const HypothesisTestingPage: React.FC = () => {
               </div>
               <div className="flex justify-between font-mono">
                 <span className="text-slate-500">Critical Region:</span>
-                <span className="font-bold text-slate-800">t &lt; -{meanTestRes.criticalValue} or t &gt; +{meanTestRes.criticalValue}</span>
+                <span className="font-bold text-slate-800">Z &lt; -{meanTestRes.criticalValue} or Z &gt; +{meanTestRes.criticalValue}</span>
               </div>
               <div className="flex justify-between font-mono">
                 <span className="text-slate-500">p-value:</span>

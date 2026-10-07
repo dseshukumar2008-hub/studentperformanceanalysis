@@ -614,15 +614,15 @@ export function calculateConfidenceInterval(sample: number[], confidenceLevel: 0
 // 6. MODULE VII & VIII: HYPOTHESIS TESTING
 // ==========================================
 
-export function runOneSampleMeanTest(
+export function runOneSampleZTest(
   values: number[],
   hypothesizedMean: number,
-  alpha: 0.01 | 0.05 | 0.10
+  alpha: 0.01 | 0.05 | 0.10,
+  populationStdDev: number
 ): HypothesisTestResult {
   const n = values.length;
   const mean = calculateMean(values);
-  const std = calculateStdDev(values, true);
-  const se = std / Math.sqrt(n);
+  const se = populationStdDev / Math.sqrt(n);
 
   const testStatistic = (mean - hypothesizedMean) / se;
 
@@ -638,7 +638,7 @@ export function runOneSampleMeanTest(
     nullHypothesis: `H₀: μ = ${hypothesizedMean}`,
     alternativeHypothesis: `H₁: μ ≠ ${hypothesizedMean}`,
     sampleMean: parseFloat(mean.toFixed(2)),
-    sampleStdDev: parseFloat(std.toFixed(2)),
+    sampleStdDev: parseFloat(populationStdDev.toFixed(2)),
     sampleSize: n,
     testStatistic: parseFloat(testStatistic.toFixed(3)),
     pValue: parseFloat(pValue.toFixed(4)),
